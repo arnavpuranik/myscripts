@@ -49,7 +49,7 @@ function clone() {
     XD " Cloning Dependencies "
     if [ $COMPILER = "clang" ]; then
        # Set Clang Toolchain
-		git clone --depth=1  https://gitlab.com/Panchajanya1999/azure-clang.git clang
+		git clone --depth=1 https://github.com/kdrag0n/proton-clang clang
 		PATH="${KERNEL_DIR}/clang/bin:$PATH"
     elif [ $COMPILER = "gcc" ]; then
 	    # Set GCC Toolchain
