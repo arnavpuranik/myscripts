@@ -16,7 +16,7 @@ DEFCONFIG=whyred_defconfig
 KERNEL_DIR=$(pwd)
 
 # The version code of the Kernel
-VERSION=X1
+VERSION=X2
 
 # Path of final Image 
 IMAGE=$(pwd)/out/arch/arm64/boot/Image.gz-dtb
