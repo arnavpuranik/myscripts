@@ -22,7 +22,7 @@ VERSION=X2
 IMAGE=$(pwd)/out/arch/arm64/boot/Image.gz-dtb
 
 # Compiler which needs to be used (Clang or gcc)
-COMPILER=clang
+COMPILER=gcc
 
 # Verbose build
 # 0 is Quiet | 1 is verbose | 2 gives reason for rebuilding targets
