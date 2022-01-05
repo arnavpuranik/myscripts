@@ -16,13 +16,13 @@ DEFCONFIG=whyred_defconfig
 KERNEL_DIR=$(pwd)
 
 # The version code of the Kernel
-VERSION=X2
+VERSION=X2.1
 
 # Path of final Image 
 IMAGE=$(pwd)/out/arch/arm64/boot/Image.gz-dtb
 
 # Compiler which needs to be used (Clang or gcc)
-COMPILER=gcc
+COMPILER=clang
 
 # Verbose build
 # 0 is Quiet | 1 is verbose | 2 gives reason for rebuilding targets
@@ -57,7 +57,7 @@ clone() {
 	elif [ $COMPILER = "clang" ]
 	then
 	        echo  "|| Cloning Clang-14 ||"
-		git clone --depth=1  https://github.com/kdrag0n/proton-clang clang
+		git clone --depth=1  https://gitlab.com/Panchajanya1999/azure-clang clang
 	fi
 
          echo "|| Cloning Anykernel ||"
