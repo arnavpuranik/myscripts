@@ -1,131 +1,163 @@
-#!/bin/bash
-blue='\033[0;34m'
-cyan='\033[0;36m'
-yellow='\033[0;33m'
-red='\033[0;31m'
-nocol='\033[0m'
+#!/usr/bin/env bash
 
-if [[ $1 == clean || $1 == c ]]; then
-    echo "Building Clean"
-    type=clean
-elif [[ $1 == dirty || $1 == d ]]; then
-    echo "Building Dirty"
-    type=dirty
-else
-    echo "Please specify type: clean or dirty"
-    exit
-fi
-
+#
+# Script For Building Android arm64 Kernel
+#
 
 # Device Name and Codename of the device
 MODEL="Redmi Note 5 Pro"
 
 DEVICE="whyred"
 
+# The defconfig which needs to be used
+DEFCONFIG=whyred_defconfig
+
+# Kernel Directory
+KERNEL_DIR=$(pwd)
+
 # The version code of the Kernel
 VERSION=X2.1
 
+# Path of final Image 
+IMAGE=$(pwd)/out/arch/arm64/boot/Image.gz-dtb
 
-setup_env() {
-if [ ! -d $CLANG_DIR ]; then
-    echo "clang directory does not exists, cloning now..."
-    git clone https://gitlab.com/Panchajanya1999/azure-clang ../clang --depth 1
-fi
-if [ ! -d $ANYKERNEL_DIR ]; then
-    echo "anykernel directory does not exists, cloning now..."
-    git clone https://github.com/arnavpuranik/AnyKernel3 ../anykernel
-fi
+# Compiler which needs to be used (Clang or gcc)
+COMPILER=clang
+
+# Verbose build
+# 0 is Quiet | 1 is verbose | 2 gives reason for rebuilding targets
+VERBOSE=0
+
+# For Drone CI
+                export KBUILD_BUILD_VERSION=$DRONE_BUILD_NUMBER
+		export KBUILD_BUILD_HOST=$DRONE_SYSTEM_HOST
+		export CI_BRANCH=$DRONE_BRANCH
+		export BASEDIR=$DRONE_REPO_NAME # overriding
+		export SERVER_URL="${DRONE_SYSTEM_PROTO}://${DRONE_SYSTEM_HOSTNAME}/arnavpuranik/${BASEDIR}/${KBUILD_BUILD_VERSION}"
+                export PROCS=$(nproc --all)
+
+# Set Date 
+DATE=$(TZ=Asia/Kolkata date +"%Y%m%d-%T")
+START=$(date +"%s")
+DATE_POSTFIX=$(date +"%Y%m%d%H%M%S")
+
+# Set a commit head
+COMMIT_HEAD=$(git log --oneline -1)
+
+#Check Kernel Version
+KERVER=$(make kernelversion)
+
+clone() {
+	echo " Cloning Dependencies "
+	if [ $COMPILER = "gcc" ]
+	then
+		echo "|| Cloning GCC ||"
+		git clone --depth=1 https://github.com/arter97/arm64-gcc.git gcc64
+     git clone --depth=1 https://github.com/arter97/arm32-gcc.git gcc32
+	elif [ $COMPILER = "clang" ]
+	then
+	        echo  "|| Cloning Clang-14 ||"
+		git clone --depth=1  https://gitlab.com/Panchajanya1999/azure-clang clang
+	fi
+
+         echo "|| Cloning Anykernel ||"
+	git clone https://github.com/arnavpuranik/AnyKernel3 -b backup
 }
 
-export_vars() {
-export KERNEL_DIR=${PWD}
-export KBUILD_BUILD_USER="Arnav"
-export KBUILD_BUILD_HOST="SerumLab"
+# Export
 export ARCH=arm64
-export CLANG_DIR=${KERNEL_DIR}/../clang
-export OUT_DIR=${KERNEL_DIR}/out
-export ANYKERNEL_DIR=${KERNEL_DIR}/../anykernel
-export KERNELBUILDS_DIR=${KERNEL_DIR}/../kernelbuilds
-export JOBS="$(grep -c '^processor' /proc/cpuinfo)"
-export PATH=${CLANG_DIR}/bin:${KERNEL_DIR}/bin:${PATH}
-export KBUILD_COMPILER_STRING=$(${CLANG_DIR}/bin/clang --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
-export BSDIFF=${KERNEL_DIR}/bin/bsdiff
-export DATE_POSTFIX=$(date +"%Y%m%d%H%M%S")
-export KERNELZIP=${ANYKERNEL_DIR}/Serum-${VERSION}_${DEVICE}-STABLE-$DATE_POSTFIX.zip *
-export BUILTIMAGE=${OUT_DIR}/arch/arm64/boot/Image
-export BUILTDTB=${OUT_DIR}/arch/arm64/boot/dts/qcom/whyred.dtb
-}
+export SUBARCH=arm64
+export LOCALVERSION="-${VERSION}"
+export KBUILD_BUILD_HOST=SerumLab
+export KBUILD_BUILD_USER="Arnav"
 
-clean_up() {
-echo -e "${cyan}Cleaning Up ${nocol}"
-rm -rf $OUT_DIR
-rm -rf ${ANYKERNEL_DIR}/Image* ${ANYKERNEL_DIR}/kernel_dtb*
-rm -rf ${ANYKERNEL_DIR}/*.xz ${ANYKERNEL_DIR}/*.zip ${ANYKERNEL_DIR}/bspatch/*
-make clean && make mrproper
+function XD() {
+if [ $COMPILER = "clang" ]
+	then
+        export KBUILD_COMPILER_STRING=$(${KERNEL_DIR}/clang/bin/clang --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
+		PATH="${PWD}/clang/bin:$PATH"
+	elif [ $COMPILER = "gcc" ]
+	then
+		export KBUILD_COMPILER_STRING=$(${KERNEL_DIR}/gcc64/bin/aarch64-elf-gcc --version | head -n 1)
+		PATH=${KERNEL_DIR}/gcc64/bin/:$KERNEL_DIR/gcc32/bin/:/usr/bin:$PATH
+	fi
 }
-
-build() {
-BUILD_START=$(date +"%s")
-echo -e "${blue}Making ${1} ${nocol}"
-make $1 \
-	-j"${JOBS}" \
-	O=$OUT_DIR \
-	ARCH=$ARCH \
-	CC="ccache clang" \
-	CROSS_COMPILE=aarch64-linux-gnu- \
-	CROSS_COMPILE_ARM32=arm-linux-gnueabi-
-BUILD_END=$(date +"%s")
-DIFF=$((${BUILD_END} - ${BUILD_START}))
-echo -e "${yellow}$1 Build completed in $(($DIFF / 60)) minute(s) and $(($DIFF % 60)) seconds.$nocol"
+# Send info plox channel
+function sendinfo() {
+    curl -s -X POST "https://api.telegram.org/bot$token/sendMessage" \
+        -d chat_id="$chat_id" \
+        -d "disable_web_page_preview=true" \
+        -d "parse_mode=html" \
+        -d text="<b>$KBUILD_BUILD_VERSION CI Build Triggered</b>%0A<b>Docker OS: </b><code>$DISTRO</code>%0A<b>Kernel Version : </b><code>$KERVER</code>%0A<b>Date : </b><code>$(TZ=Asia/Kolkata date)</code>%0A<b>Device : </b><code>$MODEL [$DEVICE]</code>%0A<b>Pipeline Host : </b><code>$KBUILD_BUILD_HOST</code>%0A<b>Host Core Count : </b><code>$PROCS</code>%0A<b>Compiler Used : </b><code>$KBUILD_COMPILER_STRING</code>%0A<b>Branch : </b><code>$CI_BRANCH</code>%0A<b>Top Commit : </b><a href='$DRONE_COMMIT_LINK'>$COMMIT_HEAD</a>"
 }
-
-move_files() {
-echo -e "${blue}Moving Files${nocol}"
-xz -c ${BUILTIMAGE} > ${ANYKERNEL_DIR}/Image.xz
-xz -c ${BUILTDTB} > ${ANYKERNEL_DIR}/kernel_dtb.xz
+# Push kernel to channel
+function push() {
+    cd AnyKernel3
+    ZIP=$(echo *.zip)
+    curl -F document=@$ZIP "https://api.telegram.org/bot$token/sendDocument" \
+        -F chat_id="$chat_id" \
+        -F "disable_web_page_preview=true" \
+        -F "parse_mode=html" \
+        -F caption="Build took $(($DIFF / 60)) minute(s) and $(($DIFF % 60)) second(s). | For <b>$MODEL ($DEVICE)</b> | <b>${KBUILD_COMPILER_STRING}</b>"
 }
-
-make_zip() {
-cd ${ANYKERNEL_DIR}
-echo -e "${blue}Making Zip${nocol}"
-BUILD_TIME=$(date +"%Y%m%d-%T")
-zip -r ${KERNELZIP} * > /dev/null
-cd -
+# Fin Error
+function finerr() {
+    LOG=error.log
+   curl -F document=@$LOG "https://api.telegram.org/bot$token/sendDocument" \
+        -F chat_id="$chat_id" \
+        -F "disable_web_page_preview=true" \
+        -F "parse_mode=html" \
+        -F caption="Build throw an error(s)"
+    exit 1
 }
+# Compile plox
+function compile() {
+           
+    if [ $COMPILER = "clang" ]
+	then
+		make O=out ARCH=arm64 ${DEFCONFIG}
+		make -j$(nproc --all) O=out \
+				ARCH=arm64 \
+				CC=clang \
+				AR=llvm-ar \
+				NM=llvm-nm \
+				OBJCOPY=llvm-objcopy \
+				OBJDUMP=llvm-objdump \
+				STRIP=llvm-strip \
+                                V=$VERBOSE \
+				CROSS_COMPILE=aarch64-linux-gnu- \
+          CROSS_COMPILE_ARM32=arm-linux-gnueabi- 2>&1 | tee error.log
 
-upload_file() {
-curl -T ${KERNELZIP} https://oshi.at/${KERNELZIP}
+	elif [ $COMPILER = "gcc" ]
+	then
+	        make O=out ARCH=arm64 ${DEFCONFIG}
+	        make -j$(nproc --all) O=out \
+	    	                ARCH=arm64 \
+                                CROSS_COMPILE_ARM32=arm-eabi- \
+                                CROSS_COMPILE=aarch64-elf- \
+			        AR=aarch64-elf-ar \
+			        OBJDUMP=aarch64-elf-objdump \
+			        STRIP=aarch64-elf-strip \
+                                V=$VERBOSE 2>&1 | tee error.log
+	fi
+
+    if ! [ -a "$IMAGE" ]; then
+        finerr
+        exit 1
+    fi
+    cp $IMAGE AnyKernel3
 }
-
-disable_defconfig() {
-echo -e "${blue}Disabling ${1}${nocol}"
-${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config -d $1
+# Zipping
+function zipping() {
+    cd AnyKernel3 || exit 1
+    zip -r9 Serum-${VERSION}_${DEVICE}-BETA-KERNEL-${DATE_POSTFIX}.zip *
+    cd ..
 }
-
-export_vars
-setup_env
-if [ $type == clean ]; then
-clean_up
-fi
-build whyred_defconfig
-build dtbs
-build Image
-if [ -f $BUILTIMAGE ]; then
-mv $BUILTIMAGE out/Image_N
-else
-echo "Image Build Failed"
-exit 1
-fi
-disable_defconfig CONFIG_XIAOMI_NEW_CAMERA_BLOBS
-build Image
-if [ ! -f $BUILTIMAGE ]; then
-echo "Image Build Failed"
-exit 1
-fi
-bin/bsdiff out/arch/arm64/boot/Image out/Image_N ${ANYKERNEL_DIR}/bspatch/newcam.patch
-if [ $type == clean ]; then
-move_files
-make_zip
-upload_file
-fi
-exit
+clone
+XD
+sendinfo
+compile
+zipping
+END=$(date +"%s")
+DIFF=$(($END - $START))
+push
