@@ -18,8 +18,8 @@ if [[ "$@" =~ "gcc" ]]; then
 elif [[ "$@" =~ "clang" ]]; then
         # Specify compiler.
         COMPILER=clang
-        # Specify toolchain. 'clang' | 'proton-clang'(default) | 'aosp-clang'
-        TOOLCHAIN=proton-clang
+        # Specify toolchain. 'azure-clang' | 'proton-clang'(default) | 'aosp-clang'
+        TOOLCHAIN=azure-clang
         # Specify linker.
         LINKER=ld.lld
 fi
@@ -48,7 +48,7 @@ VERSION=X1
 AK3_REPO="arnavpuranik/AnyKernel3" BRANCH="backup"
 
 # The defconfig which should be used. Get it from config.gz from your device or check source
-CONFIG="whyred_defconfig"
+CONFIG="vendor/whyred_defconfig"
 
 # Generate a full DEFCONFIG prior building. 1 is YES | 0 is NO(default)
 DEF_REG=0
@@ -86,8 +86,8 @@ AK3_DIR=${KERNEL_DIR}/anykernel3
 
 function clone() {
     if [[ $COMPILER == "clang" ]]; then
-         if [[ $TOOLCHAIN == "clang" ]]; then
-              git clone --depth=1 https://github.com/theradcolor/clang clang
+         if [[ $TOOLCHAIN == "azure-clang" ]]; then
+              git clone --depth=1 https://gitlab.com/Panchajanya1999/azure-clang clang
          elif [[ $TOOLCHAIN == "proton-clang" ]]; then
                 git clone --depth=1 https://github.com/kdrag0n/proton-clang clang
          elif [[ $TOOLCHAIN == "aosp-clang" ]]; then
