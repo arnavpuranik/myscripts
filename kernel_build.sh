@@ -22,7 +22,7 @@ MODEL="Redmi Note 5 Pro"
 DEVICE="whyred"
 
 # The version code of the Kernel
-VERSION=X2.5
+VERSION=X2.6
 
 setup_env() {
 if [ ! -d $CLANG_DIR ]; then
