@@ -22,7 +22,7 @@ MODEL="Redmi Note 5 Pro"
 DEVICE="whyred"
 
 # The version code of the Kernel
-VERSION=X2.6
+VERSION=X1
 
 setup_env() {
 if [ ! -d $CLANG_DIR ]; then
@@ -44,7 +44,7 @@ export KBUILD_COMPILER_STRING=$(${CLANG_DIR}/bin/clang --version | head -n 1 | p
 export_vars() {
 export KERNEL_DIR=${PWD}
 export KBUILD_BUILD_USER="Arnav"
-export KBUILD_BUILD_HOST="SerumLab"
+export KBUILD_BUILD_HOST="NexusLab"
 export ARCH=arm64
 export CLANG_DIR=${KERNEL_DIR}/../clang
 export OUT_DIR=${KERNEL_DIR}/out
@@ -53,7 +53,7 @@ export KERNELBUILDS_DIR=${KERNEL_DIR}/../kernelbuilds
 export JOBS="$(grep -c '^processor' /proc/cpuinfo)"
 export BSDIFF=${KERNEL_DIR}/bin/bsdiff
 export DATE_POSTFIX=$(date +"%Y%m%d%H%M%S")
-export KERNELZIP=${ANYKERNEL_DIR}/Serum-${VERSION}_${DEVICE}-STABLE-$DATE_POSTFIX.zip
+export KERNELZIP=${ANYKERNEL_DIR}/Nexus-${DEVICE}-STABLE-${VERSION}.zip
 export BUILTIMAGE=${OUT_DIR}/arch/arm64/boot/Image
 export BUILTDTB=${OUT_DIR}/arch/arm64/boot/dts/qcom/whyred.dtb
 export BUILTDTBQTI=${OUT_DIR}/arch/arm64/boot/dts/qcom/whyred_qtihap.dtb
